@@ -11,15 +11,19 @@ interface ModalProps {
 
 const Modal = ({ children, onClose }: ModalProps) => {
   useEffect(() => {
+    const previousBodyOverflow = document.body.style.overflow;
+
     const handleKeyDown = (event: KeyboardEvent): void => {
       if (event.key === "Escape") {
         onClose();
       }
     };
 
+    document.body.style.overflow = "hidden";
     document.addEventListener("keydown", handleKeyDown);
 
     return () => {
+      document.body.style.overflow = previousBodyOverflow;
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [onClose]);

@@ -1,20 +1,29 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { MouseEvent } from "react";
 
+import { deleteNote } from "../../services/noteService";
 import type { Note } from "../../types/note";
 import css from "./NoteList.module.css";
 
 interface NoteListProps {
   notes: Note[];
-  deletingNoteId: Note["id"] | null;
-  onDelete: (noteId: Note["id"]) => void;
 }
 
-const NoteList = ({ notes, deletingNoteId, onDelete }: NoteListProps) => {
+const NoteList = ({ notes }: NoteListProps) => {
+  const queryClient = useQueryClient();
+
+  const deleteNoteMutation = useMutation({
+    mutationFn: deleteNote,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["notes"] });
+    },
+  });
+
   const handleDeleteClick =
     (noteId: Note["id"]) =>
     (event: MouseEvent<HTMLButtonElement>): void => {
       event.preventDefault();
-      onDelete(noteId);
+      deleteNoteMutation.mutate(noteId);
     };
 
   return (
@@ -28,7 +37,10 @@ const NoteList = ({ notes, deletingNoteId, onDelete }: NoteListProps) => {
             <button
               type="button"
               className={css.button}
-              disabled={deletingNoteId === note.id}
+              disabled={
+                deleteNoteMutation.isPending &&
+                deleteNoteMutation.variables === note.id
+              }
               onClick={handleDeleteClick(note.id)}
             >
               Delete

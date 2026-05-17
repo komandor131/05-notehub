@@ -1,17 +1,17 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { MouseEvent } from "react";
 import { ErrorMessage, Field, Form, Formik } from "formik";
 import type { FormikHelpers } from "formik";
 import * as Yup from "yup";
 
+import { createNote } from "../../services/noteService";
 import type { CreateNoteData } from "../../services/noteService";
 import { NOTE_TAGS } from "../../types/note";
 import type { NoteTag } from "../../types/note";
 import css from "./NoteForm.module.css";
 
 interface NoteFormProps {
-  isSubmitting: boolean;
-  onCancel: () => void;
-  onSubmit: (values: CreateNoteData) => Promise<void>;
+  onClose: () => void;
 }
 
 const initialValues: CreateNoteData = {
@@ -31,14 +31,26 @@ const noteSchema = Yup.object({
     .required("Tag is required"),
 });
 
-const NoteForm = ({ isSubmitting, onCancel, onSubmit }: NoteFormProps) => {
+const NoteForm = ({ onClose }: NoteFormProps) => {
+  const queryClient = useQueryClient();
+
+  const createNoteMutation = useMutation({
+    mutationFn: createNote,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["notes"] });
+      onClose();
+    },
+  });
+
   const handleSubmit = async (
     values: CreateNoteData,
     actions: FormikHelpers<CreateNoteData>,
   ): Promise<void> => {
     try {
-      await onSubmit(values);
+      await createNoteMutation.mutateAsync(values);
       actions.resetForm();
+    } catch {
+      // Mutation state keeps the error message for rendering below the form.
     } finally {
       actions.setSubmitting(false);
     }
@@ -46,8 +58,13 @@ const NoteForm = ({ isSubmitting, onCancel, onSubmit }: NoteFormProps) => {
 
   const handleCancelClick = (event: MouseEvent<HTMLButtonElement>): void => {
     event.preventDefault();
-    onCancel();
+    onClose();
   };
+
+  const mutationError =
+    createNoteMutation.error instanceof Error
+      ? createNoteMutation.error.message
+      : null;
 
   return (
     <Formik
@@ -102,11 +119,13 @@ const NoteForm = ({ isSubmitting, onCancel, onSubmit }: NoteFormProps) => {
             <button
               type="submit"
               className={css.submitButton}
-              disabled={isSubmitting || isFormikSubmitting}
+              disabled={createNoteMutation.isPending || isFormikSubmitting}
             >
               Create note
             </button>
           </div>
+
+          {mutationError && <span className={css.error}>{mutationError}</span>}
         </Form>
       )}
     </Formik>
